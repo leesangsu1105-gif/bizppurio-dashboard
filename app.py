@@ -65,7 +65,7 @@ p, label, span {
     color: #FFFFFF !important;
 }
 
-/* 사이드바 커스텀 연도 선택 라디오 버튼 (배너/탭 스타일) */
+/* 사이드바 커스텀 연도 선택 라디오 버튼 */
 [data-testid="stSidebar"] div[data-testid="stRadio"] > label {
     display: none;
 }
@@ -106,7 +106,6 @@ p, label, span {
 }
 
 /* ---------------- 메인 화면 UI 요소 ---------------- */
-/* 상단 히어로 인사이트 배너 */
 .hero-banner {
     background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%) !important;
     border-radius: 20px !important;
@@ -183,11 +182,12 @@ p, label, span {
 }
 
 .kpi-card-core .kpi-val { 
-    font-size: 1.85rem; 
+    font-size: 1.35rem; 
     font-weight: 800; 
     color: #FFFFFF !important; 
     line-height: 1.2; 
     letter-spacing: -0.02em;
+    white-space: nowrap !important;
 }
 
 /* 영업사원 개별 요약 4열 카드 */
@@ -225,7 +225,7 @@ p, label, span {
     white-space: nowrap !important;
 }
 
-/* 라디오 버튼 커스텀 UI (칩 버튼) */
+/* 라디오 버튼 커스텀 UI */
 div[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] > label {
     display: none;
 }
@@ -376,22 +376,33 @@ try:
     is_yoy_mode = "통합 비교" in year_mode
     selected_yr = "2025" if "2025년" in year_mode else "2026"
 
-    def calculate_core_metrics(df, target_year):
-        df_year = df[df['연도'] == str(target_year)]
+    # 2026년 최신 데이터 존재하는 월(Max Month) 계산 (예: 7월)
+    df_2026_active = raw_data[(raw_data['연도'] == '2026') & (raw_data['전체광고비'] > 0)]
+    max_m_2026 = df_2026_active['월_num'].max() if not df_2026_active.empty else 7.0
+
+    def calculate_core_metrics_ytd(df, target_year, max_month):
+        df_year = df[(df['연도'] == str(target_year)) & (df['월_num'] <= max_month)]
         if df_year.empty: return {'spend': 0, 'leads': 0, 'contracts': 0, 'revenue': 0}
         
         spend = df_year['전체광고비'].sum()
         leads = df_year['리드수'].sum()
         contracts = df_year['계약건수'].sum()
-        revenue = df_year['신규누적매출'].sum()
+        revenue = df_year['신규누적매출'].max() # 누적액 최고점
         
         return {'spend': spend, 'leads': leads, 'contracts': contracts, 'revenue': revenue}
 
     if is_yoy_mode:
-        m_curr = calculate_core_metrics(raw_data, "2026")
-        title_tag = "2026년 기준"
+        m_25 = calculate_core_metrics_ytd(raw_data, "2025", max_m_2026)
+        m_26 = calculate_core_metrics_ytd(raw_data, "2026", max_m_2026)
+        title_tag = f"2025년 vs 2026년 동기 비교 (1~{int(max_m_2026)}월)"
     else:
-        m_curr = calculate_core_metrics(raw_data, selected_yr)
+        df_yr = raw_data[raw_data['연도'] == selected_yr]
+        m_curr = {
+            'spend': df_yr['전체광고비'].sum(),
+            'leads': df_yr['리드수'].sum(),
+            'contracts': df_yr['계약건수'].sum(),
+            'revenue': df_yr['신규누적매출'].max() if not df_yr.empty else 0
+        }
         title_tag = f"{selected_yr}년 기준"
 
     st.markdown(f"""
@@ -407,95 +418,125 @@ try:
     """, unsafe_allow_html=True)
 
     # 1. 핵심 4대 지표 KPI 카운터
-    core_html = f"""<div class="kpi-board-core">
-        <div class="kpi-card-core card-indigo">
-            <div class="kpi-label">총 광고비 집행액</div>
-            <div class="kpi-val">{m_curr['spend']:,.0f}원</div>
-        </div>
-        <div class="kpi-card-core card-amber">
-            <div class="kpi-label">유입 리드 수</div>
-            <div class="kpi-val">{m_curr['leads']:,.0f}건</div>
-        </div>
-        <div class="kpi-card-core card-emerald">
-            <div class="kpi-label">최종 계약 성사 건수</div>
-            <div class="kpi-val">{m_curr['contracts']:,.0f}건</div>
-        </div>
-        <div class="kpi-card-core card-cyan">
-            <div class="kpi-label">누적 신규 매출액</div>
-            <div class="kpi-val">{m_curr['revenue']:,.0f}원</div>
-        </div>
-    </div>"""
+    if is_yoy_mode:
+        core_html = f"""<div class="kpi-board-core">
+            <div class="kpi-card-core card-indigo">
+                <div class="kpi-label">총 광고비 (1~{int(max_m_2026)}월)</div>
+                <div class="kpi-val">{m_25['spend']:,.0f}원 ➔ {m_26['spend']:,.0f}원</div>
+            </div>
+            <div class="kpi-card-core card-amber">
+                <div class="kpi-label">유입 리드 수 (1~{int(max_m_2026)}월)</div>
+                <div class="kpi-val">{m_25['leads']:,.0f}건 ➔ {m_26['leads']:,.0f}건</div>
+            </div>
+            <div class="kpi-card-core card-emerald">
+                <div class="kpi-label">계약 성사 건수 (1~{int(max_m_2026)}월)</div>
+                <div class="kpi-val">{m_25['contracts']:,.0f}건 ➔ {m_26['contracts']:,.0f}건</div>
+            </div>
+            <div class="kpi-card-core card-cyan">
+                <div class="kpi-label">누적 신규 매출액 (1~{int(max_m_2026)}월)</div>
+                <div class="kpi-val">{m_25['revenue']:,.0f}원 ➔ {m_26['revenue']:,.0f}원</div>
+            </div>
+        </div>"""
+    else:
+        core_html = f"""<div class="kpi-board-core">
+            <div class="kpi-card-core card-indigo">
+                <div class="kpi-label">총 광고비 집행액</div>
+                <div class="kpi-val">{m_curr['spend']:,.0f}원</div>
+            </div>
+            <div class="kpi-card-core card-amber">
+                <div class="kpi-label">유입 리드 수</div>
+                <div class="kpi-val">{m_curr['leads']:,.0f}건</div>
+            </div>
+            <div class="kpi-card-core card-emerald">
+                <div class="kpi-label">최종 계약 성사 건수</div>
+                <div class="kpi-val">{m_curr['contracts']:,.0f}건</div>
+            </div>
+            <div class="kpi-card-core card-cyan">
+                <div class="kpi-label">누적 신규 매출액</div>
+                <div class="kpi-val">{m_curr['revenue']:,.0f}원</div>
+            </div>
+        </div>"""
     st.markdown(core_html, unsafe_allow_html=True)
 
     st.markdown("### 📊 인바운드 리드 실적")
     col_fin1, col_fin2 = st.columns(2)
     
-    df_single = raw_data[raw_data['연도'] == selected_yr]
-    
     with col_fin1:
         st.markdown("#### 📈 매출 & 영업이익(GP) 추이")
-        if not df_single.empty:
-            fig_fin = go.Figure()
-            # 만원 단위 변환 (/ 10,000) 및 마우스 오버 툴팁 보완
-            fig_fin.add_trace(go.Scatter(
-                x=df_single['월'], 
-                y=df_single['신규당월매출'] / 10000, 
-                name='당월확정매출', 
-                line=dict(color='#0284C7', width=3),
-                hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
-            ))
-            fig_fin.add_trace(go.Scatter(
-                x=df_single['월'], 
-                y=df_single['신규당월GP'] / 10000, 
-                name='당월GP(이익)', 
-                line=dict(color='#059669', width=2.5, dash='dash'),
-                hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
-            ))
-            fig_fin.update_layout(
-                height=250, margin=dict(t=10, b=10, l=10, r=10), 
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#0F172A'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(showgrid=False), 
-                yaxis=dict(tickformat=',.0f', ticksuffix='만원', gridcolor='#E2E8F0')
-            )
-            st.plotly_chart(fig_fin, use_container_width=True)
+        fig_fin = go.Figure()
+        
+        if is_yoy_mode:
+            df_25 = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)]
+            df_26 = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)]
+            
+            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규당월매출']/10000, name='25년 당월매출', line=dict(color='#94A3B8', width=2)))
+            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규당월매출']/10000, name='26년 당월매출', line=dict(color='#0284C7', width=3)))
+            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규당월GP']/10000, name='25년 당월GP', line=dict(color='#CBD5E1', width=1.5, dash='dash')))
+            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규당월GP']/10000, name='26년 당월GP', line=dict(color='#059669', width=2.5, dash='dash')))
         else:
-            st.info("선택한 연도의 재무 데이터가 없습니다.")
+            df_single = raw_data[raw_data['연도'] == selected_yr]
+            if not df_single.empty:
+                fig_fin.add_trace(go.Scatter(
+                    x=df_single['월'], 
+                    y=df_single['신규당월매출'] / 10000, 
+                    name='당월확정매출', 
+                    line=dict(color='#0284C7', width=3),
+                    hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
+                ))
+                fig_fin.add_trace(go.Scatter(
+                    x=df_single['월'], 
+                    y=df_single['신규당월GP'] / 10000, 
+                    name='당월GP(이익)', 
+                    line=dict(color='#059669', width=2.5, dash='dash'),
+                    hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
+                ))
+
+        fig_fin.update_layout(
+            height=250, margin=dict(t=10, b=10, l=10, r=10), 
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#0F172A'),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            xaxis=dict(showgrid=False), 
+            yaxis=dict(tickformat=',.0f', ticksuffix='만원', gridcolor='#E2E8F0')
+        )
+        st.plotly_chart(fig_fin, use_container_width=True)
 
     with col_fin2:
         st.markdown("#### 🎯 단가 효율성 (CPA) 추이")
-        if not df_single.empty:
-            df_cpa = df_single.copy()
-            df_cpa['리드CPA'] = (df_cpa['전체광고비'] / df_cpa['리드수']).fillna(0)
-            df_cpa['계약CPA'] = (df_cpa['전체광고비'] / df_cpa['계약건수']).fillna(0)
+        fig_cpa = go.Figure()
+        
+        if is_yoy_mode:
+            df_25_cpa = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)].copy()
+            df_26_cpa = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)].copy()
             
-            fig_cpa = go.Figure()
-            fig_cpa.add_trace(go.Scatter(
-                x=df_cpa['월'], 
-                y=df_cpa['리드CPA'], 
-                name='리드CPA', 
-                line=dict(color='#D97706', width=2.5),
-                hovertemplate='%{x}: %{y:,.0f}원<extra></extra>'
-            ))
-            fig_cpa.add_trace(go.Scatter(
-                x=df_cpa['월'], 
-                y=df_cpa['계약CPA'], 
-                name='계약CPA', 
-                line=dict(color='#DC2626', width=2.5),
-                hovertemplate='%{x}: %{y:,.0f}원<extra></extra>'
-            ))
-            fig_cpa.update_layout(
-                height=250, margin=dict(t=10, b=10, l=10, r=10), 
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#0F172A'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                xaxis=dict(showgrid=False), 
-                yaxis=dict(tickformat=',.0f', ticksuffix='원', gridcolor='#E2E8F0')
-            )
-            st.plotly_chart(fig_cpa, use_container_width=True)
+            df_25_cpa['리드CPA'] = (df_25_cpa['전체광고비'] / df_25_cpa['리드수']).fillna(0)
+            df_26_cpa['리드CPA'] = (df_26_cpa['전체광고비'] / df_26_cpa['리드수']).fillna(0)
+            df_25_cpa['계약CPA'] = (df_25_cpa['전체광고비'] / df_25_cpa['계약건수']).fillna(0)
+            df_26_cpa['계약CPA'] = (df_26_cpa['전체광고비'] / df_26_cpa['계약건수']).fillna(0)
+            
+            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월'], y=df_25_cpa['리드CPA'], name='25년 리드CPA', line=dict(color='#FCD34D', width=2)))
+            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월'], y=df_26_cpa['리드CPA'], name='26년 리드CPA', line=dict(color='#D97706', width=2.5)))
+            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월'], y=df_25_cpa['계약CPA'], name='25년 계약CPA', line=dict(color='#FCA5A5', width=2)))
+            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월'], y=df_26_cpa['계약CPA'], name='26년 계약CPA', line=dict(color='#DC2626', width=2.5)))
         else:
-            st.info("선택한 연도의 CPA 효율 데이터가 없습니다.")
+            df_single = raw_data[raw_data['연도'] == selected_yr]
+            if not df_single.empty:
+                df_cpa = df_single.copy()
+                df_cpa['리드CPA'] = (df_cpa['전체광고비'] / df_cpa['리드수']).fillna(0)
+                df_cpa['계약CPA'] = (df_cpa['전체광고비'] / df_cpa['계약건수']).fillna(0)
+                
+                fig_cpa.add_trace(go.Scatter(x=df_cpa['월'], y=df_cpa['리드CPA'], name='리드CPA', line=dict(color='#D97706', width=2.5)))
+                fig_cpa.add_trace(go.Scatter(x=df_cpa['월'], y=df_cpa['계약CPA'], name='계약CPA', line=dict(color='#DC2626', width=2.5)))
+
+        fig_cpa.update_layout(
+            height=250, margin=dict(t=10, b=10, l=10, r=10), 
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#0F172A'),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            xaxis=dict(showgrid=False), 
+            yaxis=dict(tickformat=',.0f', ticksuffix='원', gridcolor='#E2E8F0')
+        )
+        st.plotly_chart(fig_cpa, use_container_width=True)
 
     st.markdown("<hr style='border:none; border-top:2px solid #E2E8F0; margin: 2rem 0;'>", unsafe_allow_html=True)
 
@@ -512,18 +553,13 @@ try:
             df_rep_all = rep_raw_data.copy()
             df_rep_all['연도'] = df_rep_all['연도'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
             df_rep_all['월'] = df_rep_all['월'].apply(format_month_str)
+            df_rep_all['할당리드수'] = pd.to_numeric(df_rep_all['할당리드수'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            df_rep_all['계약건수'] = pd.to_numeric(df_rep_all['계약건수'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
             
-            df_rep_all['할당리드수'] = df_rep_all['할당리드수'].astype(str).str.replace(',', '').str.replace('건', '').str.strip()
-            df_rep_all['할당리드수'] = pd.to_numeric(df_rep_all['할당리드수'], errors='coerce').fillna(0)
-            
-            df_rep_all['계약건수'] = df_rep_all['계약건수'].astype(str).str.replace(',', '').str.replace('건', '').str.strip()
-            df_rep_all['계약건수'] = pd.to_numeric(df_rep_all['계약건수'], errors='coerce').fillna(0)
-            
-            # 계약매출액 컬럼 감지 및 자동 처리
             rev_col = [c for c in df_rep_all.columns if '매출' in c]
             if rev_col:
-                rev_series = df_rep_all[rev_col[0]].astype(str).str.replace(',', '').str.replace('원', '').str.strip()
-                df_rep_all['계약매출액'] = pd.to_numeric(rev_series, errors='coerce').fillna(0)
+                rev_s = df_rep_all[rev_col[0]].astype(str).str.replace(',', '').str.replace('원', '').str.strip()
+                df_rep_all['계약매출액'] = pd.to_numeric(rev_s, errors='coerce').fillna(0)
             else:
                 df_rep_all['계약매출액'] = 0.0
 
@@ -562,7 +598,6 @@ try:
 
     reps_list = list(df_rep_filtered_year['영업담당자'].unique()) if not df_rep_filtered_year.empty else []
 
-    # 1차 선택: 랭킹 요약 vs 개별 담당자
     view_mode = st.radio(
         "조회 방식 선택",
         options=["📊 전체 영업사원 랭킹 요약", "👤 개별 영업담당자 상세 성과"],
