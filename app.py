@@ -387,7 +387,7 @@ try:
         spend = df_year['전체광고비'].sum()
         leads = df_year['리드수'].sum()
         contracts = df_year['계약건수'].sum()
-        revenue = df_year['신규당월매출'].sum() # 당월 신규 매출의 총 합계
+        revenue = df_year['신규누적매출'].max() # 해당 기간의 신규누적매출 최고치
         
         return {'spend': spend, 'leads': leads, 'contracts': contracts, 'revenue': revenue}
 
@@ -401,7 +401,7 @@ try:
             'spend': df_yr['전체광고비'].sum(),
             'leads': df_yr['리드수'].sum(),
             'contracts': df_yr['계약건수'].sum(),
-            'revenue': df_yr['신규당월매출'].sum() if not df_yr.empty else 0
+            'revenue': df_yr['신규누적매출'].max() if not df_yr.empty else 0
         }
         title_tag = f"{selected_yr}년 기준"
 
@@ -433,7 +433,7 @@ try:
                 <div class="kpi-val">{m_25['contracts']:,.0f}건 ➔ {m_26['contracts']:,.0f}건</div>
             </div>
             <div class="kpi-card-core card-cyan">
-                <div class="kpi-label">총 신규 매출액 (1~{int(max_m_2026)}월)</div>
+                <div class="kpi-label">누적 신규 매출액 (1~{int(max_m_2026)}월)</div>
                 <div class="kpi-val">{m_25['revenue']:,.0f}원 ➔ {m_26['revenue']:,.0f}원</div>
             </div>
         </div>"""
@@ -452,7 +452,7 @@ try:
                 <div class="kpi-val">{m_curr['contracts']:,.0f}건</div>
             </div>
             <div class="kpi-card-core card-cyan">
-                <div class="kpi-label">총 신규 매출액</div>
+                <div class="kpi-label">누적 신규 매출액</div>
                 <div class="kpi-val">{m_curr['revenue']:,.0f}원</div>
             </div>
         </div>"""
