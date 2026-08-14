@@ -17,6 +17,7 @@ urllib.request.install_opener(urllib.request.build_opener(urllib.request.HTTPSHa
 # 1. 전역 시스템 환경 및 페이지 테마 설정
 st.set_page_config(page_title="비즈뿌리오 광고 효율 대시보드", layout="wide", initial_sidebar_state="expanded")
 
+# STREAMING_CHUNK: Configuring modern light theme and CSS rules...
 st.markdown("""<style>
 /* 전역 라이트 클린 배경 및 컨테이너 여백 */
 .stApp {
@@ -293,6 +294,7 @@ div[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] label[data-ba
 }
 </style>""", unsafe_allow_html=True)
 
+# STREAMING_CHUNK: Initializing Google Sheets URL and schema loader...
 schema_mapping = {
     '연도': 'str', '월': 'str',
     '전체광고비': 'float', '네이버광고비': 'float', '구글광고비': 'float',
@@ -358,6 +360,7 @@ try:
     raw_data['월'] = raw_data['월'].apply(format_month_str)
     raw_data = raw_data.sort_values(by=['연도', '월_num'])
 
+    # STREAMING_CHUNK: Setting up sidebar and calculating active months...
     st.sidebar.markdown("### 💼 bizppurio")
     st.sidebar.markdown("<p style='font-size:0.85rem; opacity:0.8;'>광고 & 영업 성과 비교</p>", unsafe_allow_html=True)
     st.sidebar.markdown("<hr style='border:none; border-top:1px solid rgba(255,255,255,0.2); margin:0.8rem 0 1.2rem 0;'>", unsafe_allow_html=True)
@@ -376,7 +379,7 @@ try:
     is_yoy_mode = "통합 비교" in year_mode
     selected_yr = "2025" if "2025년" in year_mode else "2026"
 
-    # 2026년 최신 데이터 존재하는 월(Max Month) 계산 (예: 7월)
+    # ★ 2026년 최신 데이터 존재하는 월(Max Month) 자동 산출 (현재 7월)
     df_2026_active = raw_data[(raw_data['연도'] == '2026') & (raw_data['전체광고비'] > 0)]
     max_m_2026 = df_2026_active['월_num'].max() if not df_2026_active.empty else 7.0
 
@@ -387,7 +390,7 @@ try:
         spend = df_year['전체광고비'].sum()
         leads = df_year['리드수'].sum()
         contracts = df_year['계약건수'].sum()
-        revenue = df_year['신규누적매출'].max() # 누적액 최고점
+        revenue = df_year['신규누적매출'].max() # 해당 기간 최고 누적액
         
         return {'spend': spend, 'leads': leads, 'contracts': contracts, 'revenue': revenue}
 
@@ -405,6 +408,7 @@ try:
         }
         title_tag = f"{selected_yr}년 기준"
 
+    # STREAMING_CHUNK: Rendering hero banner and core 4 KPI cards...
     st.markdown(f"""
     <div class="hero-banner">
         <div>
@@ -417,7 +421,6 @@ try:
     </div>
     """, unsafe_allow_html=True)
 
-    # 1. 핵심 4대 지표 KPI 카운터
     if is_yoy_mode:
         core_html = f"""<div class="kpi-board-core">
             <div class="kpi-card-core card-indigo">
@@ -458,6 +461,7 @@ try:
         </div>"""
     st.markdown(core_html, unsafe_allow_html=True)
 
+    # STREAMING_CHUNK: Rendering inbound lead performance charts...
     st.markdown("### 📊 인바운드 리드 실적")
     col_fin1, col_fin2 = st.columns(2)
     
@@ -469,26 +473,26 @@ try:
             df_25 = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)]
             df_26 = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)]
             
-            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규당월매출']/10000, name='25년 당월매출', line=dict(color='#94A3B8', width=2)))
-            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규당월매출']/10000, name='26년 당월매출', line=dict(color='#0284C7', width=3)))
-            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규당월GP']/10000, name='25년 당월GP', line=dict(color='#CBD5E1', width=1.5, dash='dash')))
-            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규당월GP']/10000, name='26년 당월GP', line=dict(color='#059669', width=2.5, dash='dash')))
+            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규누적매출']/10000, name='25년 누적매출', line=dict(color='#94A3B8', width=2)))
+            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규누적매출']/10000, name='26년 누적매출', line=dict(color='#0284C7', width=3)))
+            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규누적GP']/10000, name='25년 누적GP', line=dict(color='#CBD5E1', width=1.5, dash='dash')))
+            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규누적GP']/10000, name='26년 누적GP', line=dict(color='#059669', width=2.5, dash='dash')))
         else:
             df_single = raw_data[raw_data['연도'] == selected_yr]
             if not df_single.empty:
                 fig_fin.add_trace(go.Scatter(
                     x=df_single['월'], 
-                    y=df_single['신규당월매출'] / 10000, 
-                    name='당월확정매출', 
+                    y=df_single['신규누적매출'] / 10000, 
+                    name='신규 누적 매출', 
                     line=dict(color='#0284C7', width=3),
-                    hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
+                    hovertemplate='%{x}: %{y:,.0f}만원<extra></extra>'
                 ))
                 fig_fin.add_trace(go.Scatter(
                     x=df_single['월'], 
-                    y=df_single['신규당월GP'] / 10000, 
-                    name='당월GP(이익)', 
+                    y=df_single['신규누적GP'] / 10000, 
+                    name='신규 누적 GP(이익)', 
                     line=dict(color='#059669', width=2.5, dash='dash'),
-                    hovertemplate='%{x}: %{y:,.1f}만원<extra></extra>'
+                    hovertemplate='%{x}: %{y:,.0f}만원<extra></extra>'
                 ))
 
         fig_fin.update_layout(
@@ -540,6 +544,7 @@ try:
 
     st.markdown("<hr style='border:none; border-top:2px solid #E2E8F0; margin: 2rem 0;'>", unsafe_allow_html=True)
 
+    # STREAMING_CHUNK: Processing sales representatives data with fair YTD filtering...
     st.markdown("### 🧑‍💼 영업 담당자 별 성과 요약")
     st.markdown("<p style='font-size:0.88rem; margin-top:-0.4rem; color:#64748B;'>상단 랭킹 요약 및 개별 영업담당자 이름을 클릭하세요.</p>", unsafe_allow_html=True)
 
@@ -553,6 +558,7 @@ try:
             df_rep_all = rep_raw_data.copy()
             df_rep_all['연도'] = df_rep_all['연도'].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
             df_rep_all['월'] = df_rep_all['월'].apply(format_month_str)
+            df_rep_all['월_num'] = df_rep_all['월'].astype(str).str.extract(r'(\d+)').astype(float).fillna(0)
             df_rep_all['할당리드수'] = pd.to_numeric(df_rep_all['할당리드수'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
             df_rep_all['계약건수'] = pd.to_numeric(df_rep_all['계약건수'].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
             
@@ -580,9 +586,11 @@ try:
                     assigned_leads = random.randint(10, 35)
                     closed_contracts = int(assigned_leads * random.uniform(0.10, 0.40))
                     rev = closed_contracts * random.randint(1500000, 3500000)
+                    m_num = float(m.replace('월', ''))
                     rep_data.append({
                         '연도': yr,
                         '월': m,
+                        '월_num': m_num,
                         '영업담당자': rep,
                         '할당리드수': assigned_leads,
                         '계약건수': closed_contracts,
@@ -591,8 +599,12 @@ try:
                     })
         df_rep_all = pd.DataFrame(rep_data)
 
+    # ★ YoY 통합 비교 시 2025년도 2026년 최신월(max_m_2026) 이하 데이터만 정밀 필터링!
     if is_yoy_mode:
-        df_rep_filtered_year = df_rep_all[df_rep_all['연도'].isin(['2025', '2026'])].copy()
+        df_rep_filtered_year = df_rep_all[
+            (df_rep_all['연도'].isin(['2025', '2026'])) & 
+            (df_rep_all['월_num'] <= max_m_2026)
+        ].copy()
     else:
         df_rep_filtered_year = df_rep_all[df_rep_all['연도'] == selected_yr].copy()
 
@@ -629,7 +641,7 @@ try:
 
             fig_rank = px.bar(
                 rep_summary, x='영업담당자', y='계약건수', color='연도', barmode='group', text='계약건수',
-                title="담당자별 전년 동기 대비 계약 건수 비교 (2025 vs 2026)",
+                title=f"담당자별 전년 동기 대비 계약 건수 비교 (1~{int(max_m_2026)}월)",
                 color_discrete_map={'2025': '#94A3B8', '2026': '#4F46E5'}
             )
             fig_rank.update_traces(textposition='outside')
@@ -672,7 +684,7 @@ try:
             st.dataframe(rep_summary.style.format({'할당리드수': '{:,.0f}건', '계약건수': '{:,.0f}건', '계약전환율(%)': '{:.1f}%'}), use_container_width=True, height=220, hide_index=True)
 
     else:
-        df_single_rep = df_rep_all[df_rep_all['영업담당자'] == selected_rep].copy()
+        df_single_rep = df_rep_filtered_year[df_rep_filtered_year['영업담당자'] == selected_rep].copy()
         st.markdown(f"##### 👤 **[{selected_rep}]** 담당자 성과 보고서")
 
         if is_yoy_mode:
@@ -690,30 +702,29 @@ try:
 
             rep_html = f"""<div class="rep-kpi-board">
                 <div class="rep-kpi-card">
-                    <div class="kpi-label">총 배정 리드</div>
+                    <div class="kpi-label">총 배정 리드 (1~{int(max_m_2026)}월)</div>
                     <div class="rep-kpi-val">{leads_25:,.0f}건 ➔ {leads_26:,.0f}건</div>
                 </div>
                 <div class="rep-kpi-card">
-                    <div class="kpi-label">총 계약 성사</div>
+                    <div class="kpi-label">총 계약 성사 (1~{int(max_m_2026)}월)</div>
                     <div class="rep-kpi-val" style="color:#059669;">{contracts_25:,.0f}건 ➔ {contracts_26:,.0f}건</div>
                 </div>
                 <div class="rep-kpi-card">
-                    <div class="kpi-label">평균 전환율</div>
+                    <div class="kpi-label">평균 전환율 (1~{int(max_m_2026)}월)</div>
                     <div class="rep-kpi-val" style="color:#D97706;">{cvr_25:.1f}% ➔ {cvr_26:.1f}%</div>
                 </div>
                 <div class="rep-kpi-card">
-                    <div class="kpi-label">총 계약 매출액</div>
+                    <div class="kpi-label">총 계약 매출액 (1~{int(max_m_2026)}월)</div>
                     <div class="rep-kpi-val" style="color:#2563EB;">{rev_25:,.0f}원 ➔ {rev_26:,.0f}원</div>
                 </div>
             </div>"""
             st.markdown(rep_html, unsafe_allow_html=True)
 
-            df_single_rep['월_num'] = df_single_rep['월'].astype(str).str.extract(r'(\d+)').astype(float).fillna(0)
             df_single_rep_sorted = df_single_rep.sort_values(by='월_num')
             
             fig_indiv = px.bar(
                 df_single_rep_sorted, x='월', y='계약건수', color='연도', barmode='group', text='계약건수',
-                title=f"{selected_rep} 월별 계약 건수 비교 (2025 vs 2026)",
+                title=f"{selected_rep} 월별 계약 건수 비교 (1~{int(max_m_2026)}월 동기)",
                 color_discrete_map={'2025': '#94A3B8', '2026': '#10B981'}
             )
             fig_indiv.update_layout(
