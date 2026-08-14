@@ -380,6 +380,7 @@ try:
     df_2026_active = raw_data[(raw_data['연도'] == '2026') & (raw_data['전체광고비'] > 0)]
     max_m_2026 = df_2026_active['월_num'].max() if not df_2026_active.empty else 7.0
 
+    # ★ 누적 신규 매출액을 단순 합산(.sum())하도록 작성한 핵심 함수
     def calculate_core_metrics_ytd(df, target_year, max_month):
         df_year = df[(df['연도'] == str(target_year)) & (df['월_num'] <= max_month)]
         if df_year.empty: return {'spend': 0, 'leads': 0, 'contracts': 0, 'revenue': 0}
@@ -387,7 +388,7 @@ try:
         spend = df_year['전체광고비'].sum()
         leads = df_year['리드수'].sum()
         contracts = df_year['계약건수'].sum()
-        revenue = df_year['신규누적매출'].max() # 해당 기간의 신규누적매출 최고치
+        revenue = df_year['신규누적매출'].sum()  # 요청에 따라 신규 누적 매출의 단순 합산
         
         return {'spend': spend, 'leads': leads, 'contracts': contracts, 'revenue': revenue}
 
@@ -401,7 +402,7 @@ try:
             'spend': df_yr['전체광고비'].sum(),
             'leads': df_yr['리드수'].sum(),
             'contracts': df_yr['계약건수'].sum(),
-            'revenue': df_yr['신규누적매출'].max() if not df_yr.empty else 0
+            'revenue': df_yr['신규누적매출'].sum() if not df_yr.empty else 0  # 요청에 따라 신규 누적 매출 단순 합산
         }
         title_tag = f"{selected_yr}년 기준"
 
