@@ -46,9 +46,11 @@ h3 {
 }
 
 h4 {
-    font-weight: 700 !important;
+    font-weight: 700 !important; 
     color: #334155 !important;
     margin-bottom: 0.8rem !important;
+    font-size: 1rem !important;
+    white-space: nowrap !important;
 }
 
 p, label, span {
@@ -356,6 +358,7 @@ try:
 
     raw_data['월_num'] = raw_data['월'].astype(str).str.extract(r'(\d+)').astype(float).fillna(0)
     raw_data['월'] = raw_data['월'].apply(format_month_str)
+    raw_data['월_단순'] = raw_data['월_num'].astype(int).astype(str)
     raw_data = raw_data.sort_values(by=['연도', '월_num'])
 
     st.sidebar.markdown("### 💼 bizppurio")
@@ -464,33 +467,33 @@ try:
     
     # 1번째 차트: 매출 & GP 추이
     with col_fin1:
-        st.markdown("#### 📈 매출 & 영업이익(GP) 추이")
+        st.markdown("#### 📈 누적 매출 & GP 추이")
         fig_fin = go.Figure()
         
         if is_yoy_mode:
             df_25 = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)]
             df_26 = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)]
             
-            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규누적매출']/10000, name='25년 누적매출', line=dict(color='#94A3B8', width=2)))
-            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규누적매출']/10000, name='26년 누적매출', line=dict(color='#0284C7', width=3)))
-            fig_fin.add_trace(go.Scatter(x=df_25['월'], y=df_25['신규누적GP']/10000, name='25년 누적GP', line=dict(color='#CBD5E1', width=1.5, dash='dash')))
-            fig_fin.add_trace(go.Scatter(x=df_26['월'], y=df_26['신규누적GP']/10000, name='26년 누적GP', line=dict(color='#059669', width=2.5, dash='dash')))
+            fig_fin.add_trace(go.Scatter(x=df_25['월_단순'], y=df_25['신규누적매출']/10000, name='25년 누적매출', line=dict(color='#94A3B8', width=2), hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'))
+            fig_fin.add_trace(go.Scatter(x=df_26['월_단순'], y=df_26['신규누적매출']/10000, name='26년 누적매출', line=dict(color='#0284C7', width=3), hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'))
+            fig_fin.add_trace(go.Scatter(x=df_25['월_단순'], y=df_25['신규누적GP']/10000, name='25년 누적GP', line=dict(color='#CBD5E1', width=1.5, dash='dash'), hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'))
+            fig_fin.add_trace(go.Scatter(x=df_26['월_단순'], y=df_26['신규누적GP']/10000, name='26년 누적GP', line=dict(color='#059669', width=2.5, dash='dash'), hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'))
         else:
             df_single = raw_data[raw_data['연도'] == selected_yr]
             if not df_single.empty:
                 fig_fin.add_trace(go.Scatter(
-                    x=df_single['월'], 
+                    x=df_single['월_단순'], 
                     y=df_single['신규누적매출'] / 10000, 
                     name='신규 누적 매출', 
                     line=dict(color='#0284C7', width=3),
-                    hovertemplate='%{x}: %{y:,.0f}만원<extra></extra>'
+                    hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'
                 ))
                 fig_fin.add_trace(go.Scatter(
-                    x=df_single['월'], 
+                    x=df_single['월_단순'], 
                     y=df_single['신규누적GP'] / 10000, 
-                    name='신규 누적 GP(이익)', 
+                    name='신규 누적 GP', 
                     line=dict(color='#059669', width=2.5, dash='dash'),
-                    hovertemplate='%{x}: %{y:,.0f}만원<extra></extra>'
+                    hovertemplate='%{x}월: %{y:,.0f}만원<extra></extra>'
                 ))
 
         fig_fin.update_layout(
@@ -498,14 +501,14 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#0F172A'),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(showgrid=False), 
+            xaxis=dict(showgrid=False, tickangle=0), 
             yaxis=dict(tickformat=',.0f', ticksuffix='만원', gridcolor='#E2E8F0')
         )
         st.plotly_chart(fig_fin, use_container_width=True)
 
     # 2번째 차트: CPA 단가 효율성
     with col_fin2:
-        st.markdown("#### 🎯 단가 효율성 (CPA) 추이")
+        st.markdown("#### 🎯 단가 효율 (CPA) 추이")
         fig_cpa = go.Figure()
         
         if is_yoy_mode:
@@ -517,10 +520,10 @@ try:
             df_25_cpa['계약CPA'] = (df_25_cpa['전체광고비'] / df_25_cpa['계약건수']).fillna(0)
             df_26_cpa['계약CPA'] = (df_26_cpa['전체광고비'] / df_26_cpa['계약건수']).fillna(0)
             
-            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월'], y=df_25_cpa['리드CPA'], name='25년 리드CPA', line=dict(color='#FCD34D', width=2)))
-            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월'], y=df_26_cpa['리드CPA'], name='26년 리드CPA', line=dict(color='#D97706', width=2.5)))
-            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월'], y=df_25_cpa['계약CPA'], name='25년 계약CPA', line=dict(color='#FCA5A5', width=2)))
-            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월'], y=df_26_cpa['계약CPA'], name='26년 계약CPA', line=dict(color='#DC2626', width=2.5)))
+            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월_단순'], y=df_25_cpa['리드CPA'], name='25년 리드CPA', line=dict(color='#FCD34D', width=2), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
+            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월_단순'], y=df_26_cpa['리드CPA'], name='26년 리드CPA', line=dict(color='#D97706', width=2.5), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
+            fig_cpa.add_trace(go.Scatter(x=df_25_cpa['월_단순'], y=df_25_cpa['계약CPA'], name='25년 계약CPA', line=dict(color='#FCA5A5', width=2), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
+            fig_cpa.add_trace(go.Scatter(x=df_26_cpa['월_단순'], y=df_26_cpa['계약CPA'], name='26년 계약CPA', line=dict(color='#DC2626', width=2.5), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
         else:
             df_single = raw_data[raw_data['연도'] == selected_yr]
             if not df_single.empty:
@@ -528,49 +531,49 @@ try:
                 df_cpa['리드CPA'] = (df_cpa['전체광고비'] / df_cpa['리드수']).fillna(0)
                 df_cpa['계약CPA'] = (df_cpa['전체광고비'] / df_cpa['계약건수']).fillna(0)
                 
-                fig_cpa.add_trace(go.Scatter(x=df_cpa['월'], y=df_cpa['리드CPA'], name='리드CPA', line=dict(color='#D97706', width=2.5)))
-                fig_cpa.add_trace(go.Scatter(x=df_cpa['월'], y=df_cpa['계약CPA'], name='계약CPA', line=dict(color='#DC2626', width=2.5)))
+                fig_cpa.add_trace(go.Scatter(x=df_cpa['월_단순'], y=df_cpa['리드CPA'], name='리드CPA', line=dict(color='#D97706', width=2.5), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
+                fig_cpa.add_trace(go.Scatter(x=df_cpa['월_단순'], y=df_cpa['계약CPA'], name='계약CPA', line=dict(color='#DC2626', width=2.5), hovertemplate='%{x}월: %{y:,.0f}원<extra></extra>'))
 
         fig_cpa.update_layout(
             height=260, margin=dict(t=10, b=10, l=10, r=10), 
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#0F172A'),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(showgrid=False), 
+            xaxis=dict(showgrid=False, tickangle=0), 
             yaxis=dict(tickformat=',.0f', ticksuffix='원', gridcolor='#E2E8F0')
         )
         st.plotly_chart(fig_cpa, use_container_width=True)
 
     # 3번째 차트: 월별 유입 리드 & 계약 성사 추이
     with col_fin3:
-        st.markdown("#### 📥 월별 유입 리드 & 계약 추이")
+        st.markdown("#### 📥 리드 & 계약 추이")
         fig_leads = go.Figure()
         
         if is_yoy_mode:
             df_25 = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)]
             df_26 = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)]
             
-            fig_leads.add_trace(go.Scatter(x=df_25['월'], y=df_25['리드수'], name='25년 리드수', line=dict(color='#94A3B8', width=2)))
-            fig_leads.add_trace(go.Scatter(x=df_26['월'], y=df_26['리드수'], name='26년 리드수', line=dict(color='#4F46E5', width=3)))
-            fig_leads.add_trace(go.Scatter(x=df_25['월'], y=df_25['계약건수'], name='25년 계약수', line=dict(color='#CBD5E1', width=1.5, dash='dash')))
-            fig_leads.add_trace(go.Scatter(x=df_26['월'], y=df_26['계약건수'], name='26년 계약수', line=dict(color='#10B981', width=2.5, dash='dash')))
+            fig_leads.add_trace(go.Scatter(x=df_25['월_단순'], y=df_25['리드수'], name='25년 리드수', line=dict(color='#94A3B8', width=2), hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'))
+            fig_leads.add_trace(go.Scatter(x=df_26['월_단순'], y=df_26['리드수'], name='26년 리드수', line=dict(color='#4F46E5', width=3), hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'))
+            fig_leads.add_trace(go.Scatter(x=df_25['월_단순'], y=df_25['계약건수'], name='25년 계약수', line=dict(color='#CBD5E1', width=1.5, dash='dash'), hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'))
+            fig_leads.add_trace(go.Scatter(x=df_26['월_단순'], y=df_26['계약건수'], name='26년 계약수', line=dict(color='#10B981', width=2.5, dash='dash'), hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'))
         else:
             df_single = raw_data[raw_data['연도'] == selected_yr]
             if not df_single.empty:
                 fig_leads.add_trace(go.Bar(
-                    x=df_single['월'], 
+                    x=df_single['월_단순'], 
                     y=df_single['리드수'], 
                     name='유입 리드수', 
                     marker_color='#6366F1',
                     opacity=0.85,
-                    hovertemplate='%{x}: %{y:,.0f}건<extra></extra>'
+                    hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'
                 ))
                 fig_leads.add_trace(go.Bar(
-                    x=df_single['월'], 
+                    x=df_single['월_단순'], 
                     y=df_single['계약건수'], 
                     name='계약 성사수', 
                     marker_color='#10B981',
-                    hovertemplate='%{x}: %{y:,.0f}건<extra></extra>'
+                    hovertemplate='%{x}월: %{y:,.0f}건<extra></extra>'
                 ))
 
         fig_leads.update_layout(
@@ -579,14 +582,14 @@ try:
             font=dict(color='#0F172A'),
             barmode='group',
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(showgrid=False), 
+            xaxis=dict(showgrid=False, tickangle=0), 
             yaxis=dict(tickformat=',.0f', ticksuffix='건', gridcolor='#E2E8F0')
         )
         st.plotly_chart(fig_leads, use_container_width=True)
 
-    # 4번째 차트 새로 추가: 월별 계약률(전환율) 추이
+    # 4번째 차트: 월별 계약률(전환율) 추이
     with col_fin4:
-        st.markdown("#### 📊 월별 계약률(전환율) 추이")
+        st.markdown("#### 📊 월별 계약 전환율")
         fig_cvr = go.Figure()
         
         if is_yoy_mode:
@@ -597,23 +600,23 @@ try:
             df_26_cvr = (df_26['계약건수'] / df_26['리드수'] * 100).fillna(0).round(1)
             
             fig_cvr.add_trace(go.Scatter(
-                x=df_25['월'], y=df_25_cvr, name='25년 계약률', 
+                x=df_25['월_단순'], y=df_25_cvr, name='25년 계약률', 
                 mode='lines+markers', line=dict(color='#94A3B8', width=2),
-                hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+                hovertemplate='%{x}월: %{y:.1f}%<extra></extra>'
             ))
             fig_cvr.add_trace(go.Scatter(
-                x=df_26['월'], y=df_26_cvr, name='26년 계약률', 
+                x=df_26['월_단순'], y=df_26_cvr, name='26년 계약률', 
                 mode='lines+markers', line=dict(color='#F59E0B', width=2.5),
-                hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+                hovertemplate='%{x}월: %{y:.1f}%<extra></extra>'
             ))
         else:
             df_single = raw_data[raw_data['연도'] == selected_yr]
             if not df_single.empty:
                 df_single_cvr = (df_single['계약건수'] / df_single['리드수'] * 100).fillna(0).round(1)
                 fig_cvr.add_trace(go.Scatter(
-                    x=df_single['월'], y=df_single_cvr, name='월별 계약률',
+                    x=df_single['월_단순'], y=df_single_cvr, name='계약률',
                     mode='lines+markers', line=dict(color='#F59E0B', width=2.5),
-                    hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+                    hovertemplate='%{x}월: %{y:.1f}%<extra></extra>'
                 ))
 
         fig_cvr.update_layout(
@@ -621,7 +624,7 @@ try:
             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#0F172A'),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            xaxis=dict(showgrid=False), 
+            xaxis=dict(showgrid=False, tickangle=0), 
             yaxis=dict(tickformat='.0f', ticksuffix='%', gridcolor='#E2E8F0')
         )
         st.plotly_chart(fig_cvr, use_container_width=True)
