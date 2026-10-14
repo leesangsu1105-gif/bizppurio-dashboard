@@ -17,7 +17,6 @@ urllib.request.install_opener(urllib.request.build_opener(urllib.request.HTTPSHa
 # 1. 전역 시스템 환경 및 페이지 테마 설정
 st.set_page_config(page_title="비즈뿌리오 광고 효율 대시보드", layout="wide", initial_sidebar_state="expanded")
 
-# STREAMING_CHUNK: Applying custom CSS styling for light theme...
 st.markdown("""<style>
 /* 전역 라이트 클린 배경 및 컨테이너 여백 */
 .stApp {
@@ -294,7 +293,6 @@ div[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] label[data-ba
 }
 </style>""", unsafe_allow_html=True)
 
-# STREAMING_CHUNK: Loading raw data from Google Sheets...
 schema_mapping = {
     '연도': 'str', '월': 'str',
     '전체광고비': 'float', '네이버광고비': 'float', '구글광고비': 'float',
@@ -360,7 +358,6 @@ try:
     raw_data['월'] = raw_data['월'].apply(format_month_str)
     raw_data = raw_data.sort_values(by=['연도', '월_num'])
 
-    # STREAMING_CHUNK: Setting up sidebar and calculating YTD periods...
     st.sidebar.markdown("### 💼 bizppurio")
     st.sidebar.markdown("<p style='font-size:0.85rem; opacity:0.8;'>광고 & 영업 성과 비교</p>", unsafe_allow_html=True)
     st.sidebar.markdown("<hr style='border:none; border-top:1px solid rgba(255,255,255,0.2); margin:0.8rem 0 1.2rem 0;'>", unsafe_allow_html=True)
@@ -383,7 +380,7 @@ try:
     df_2026_active = raw_data[(raw_data['연도'] == '2026') & (raw_data['전체광고비'] > 0)]
     max_m_2026 = df_2026_active['월_num'].max() if not df_2026_active.empty else 7.0
 
-    # 신규 누적 매출의 단순 합산 계산 함수
+    # ★ 누적 신규 매출액을 단순 합산(.sum())하도록 작성한 핵심 함수
     def calculate_core_metrics_ytd(df, target_year, max_month):
         df_year = df[(df['연도'] == str(target_year)) & (df['월_num'] <= max_month)]
         if df_year.empty: return {'spend': 0, 'leads': 0, 'contracts': 0, 'revenue': 0}
@@ -391,7 +388,7 @@ try:
         spend = df_year['전체광고비'].sum()
         leads = df_year['리드수'].sum()
         contracts = df_year['계약건수'].sum()
-        revenue = df_year['신규누적매출'].sum()  # 요청에 따른 신규 누적 매출의 단순 합산
+        revenue = df_year['신규누적매출'].sum()  # 요청에 따라 신규 누적 매출의 단순 합산
         
         return {'spend': spend, 'leads': leads, 'contracts': contracts, 'revenue': revenue}
 
@@ -405,11 +402,10 @@ try:
             'spend': df_yr['전체광고비'].sum(),
             'leads': df_yr['리드수'].sum(),
             'contracts': df_yr['계약건수'].sum(),
-            'revenue': df_yr['신규누적매출'].sum() if not df_yr.empty else 0
+            'revenue': df_yr['신규누적매출'].sum() if not df_yr.empty else 0  # 요청에 따라 신규 누적 매출 단순 합산
         }
         title_tag = f"{selected_yr}년 기준"
 
-    # STREAMING_CHUNK: Rendering hero banner and core 4 KPI cards...
     st.markdown(f"""
     <div class="hero-banner">
         <div>
@@ -463,9 +459,8 @@ try:
         </div>"""
     st.markdown(core_html, unsafe_allow_html=True)
 
-    # STREAMING_CHUNK: Rendering inbound lead performance section in 3 columns...
     st.markdown("### 📊 인바운드 리드 실적")
-    col_fin1, col_fin2, col_fin3 = st.columns(3)
+    col_fin1, col_fin2, col_fin3, col_fin4 = st.columns(4)
     
     # 1번째 차트: 매출 & GP 추이
     with col_fin1:
@@ -546,7 +541,7 @@ try:
         )
         st.plotly_chart(fig_cpa, use_container_width=True)
 
-    # 3번째 차트 새로 추가: 월별 유입 리드 & 계약 성사 추이
+    # 3번째 차트: 월별 유입 리드 & 계약 성사 추이
     with col_fin3:
         st.markdown("#### 📥 월별 유입 리드 & 계약 추이")
         fig_leads = go.Figure()
@@ -589,9 +584,50 @@ try:
         )
         st.plotly_chart(fig_leads, use_container_width=True)
 
+    # 4번째 차트 새로 추가: 월별 계약률(전환율) 추이
+    with col_fin4:
+        st.markdown("#### 📊 월별 계약률(전환율) 추이")
+        fig_cvr = go.Figure()
+        
+        if is_yoy_mode:
+            df_25 = raw_data[(raw_data['연도'] == '2025') & (raw_data['월_num'] <= max_m_2026)]
+            df_26 = raw_data[(raw_data['연도'] == '2026') & (raw_data['월_num'] <= max_m_2026)]
+            
+            df_25_cvr = (df_25['계약건수'] / df_25['리드수'] * 100).fillna(0).round(1)
+            df_26_cvr = (df_26['계약건수'] / df_26['리드수'] * 100).fillna(0).round(1)
+            
+            fig_cvr.add_trace(go.Scatter(
+                x=df_25['월'], y=df_25_cvr, name='25년 계약률', 
+                mode='lines+markers', line=dict(color='#94A3B8', width=2),
+                hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+            ))
+            fig_cvr.add_trace(go.Scatter(
+                x=df_26['월'], y=df_26_cvr, name='26년 계약률', 
+                mode='lines+markers', line=dict(color='#F59E0B', width=2.5),
+                hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+            ))
+        else:
+            df_single = raw_data[raw_data['연도'] == selected_yr]
+            if not df_single.empty:
+                df_single_cvr = (df_single['계약건수'] / df_single['리드수'] * 100).fillna(0).round(1)
+                fig_cvr.add_trace(go.Scatter(
+                    x=df_single['월'], y=df_single_cvr, name='월별 계약률',
+                    mode='lines+markers', line=dict(color='#F59E0B', width=2.5),
+                    hovertemplate='%{x}: %{y:.1f}%<extra></extra>'
+                ))
+
+        fig_cvr.update_layout(
+            height=260, margin=dict(t=10, b=10, l=10, r=10), 
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#0F172A'),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            xaxis=dict(showgrid=False), 
+            yaxis=dict(tickformat='.0f', ticksuffix='%', gridcolor='#E2E8F0')
+        )
+        st.plotly_chart(fig_cvr, use_container_width=True)
+
     st.markdown("<hr style='border:none; border-top:2px solid #E2E8F0; margin: 2rem 0;'>", unsafe_allow_html=True)
 
-    # STREAMING_CHUNK: Processing sales representatives dashboard section...
     st.markdown("### 🧑‍💼 영업 담당자 별 성과 요약")
     st.markdown("<p style='font-size:0.88rem; margin-top:-0.4rem; color:#64748B;'>상단 랭킹 요약 및 개별 영업담당자 이름을 클릭하세요.</p>", unsafe_allow_html=True)
 
